@@ -1,0 +1,126 @@
+docker run -p 8080:80 nginx -> irá direcionar a porta 80 do container para a porta 8080 da minha máquina
+docker run -d -p 80:80 nginx -> o -d desatacha o terminal e deixa o processo rodando
+docker rm id/name container -> irá remover o container (ao colocar -f irá forçar a remoção)
+docker exec container_name/nginx ls -> diretório do container
+docker exec -it container_name/nginx bash -> entra no container
+cd /usr/share/nginx/html/ -> diretório nginx
+apt-get update -> por padrão o apt-get vem limpo para a imagem rodar mais suavemente
+apt-get install vim -> instala o vim
+vim index.html
+i -> insert
+wsc -> sai da edição
+:w -> write
+:q -> quit
+:q! -> sair sem salvar
+:wq -> sair e salvar
+altera o container mas não está alterando a imagem
+docker run -d --name nginx -p 8080:80 --mount type=bind,source="$(pwd)"/docker,target=/usr/share/nginx/html nginx
+-v cria a pasta na máquina mesmo que ela não exista na máquina
+--mount da erro de pasta inexistente caso ela não exista na máquina
+docker run --name nginx2 -d --mount type=volume,source=meuvolume,target=/app nginx -> coloca o volume no container do docker (se for criado um outro volume ele também será compartilhado)
+docker volume create meuvolume -> cria um volume
+docker volume prune -> limpa os espaços que o volume não é usado
+RUN apt-get update && apt-get install -y vim 
+docker build -t jeansouza007/nginx-com-vim:latest . -> cria uma imagem
+WORKDIR /app -> vai "criar" uma pasta /app no conteiner
+COPY html /usr/share/nginx/html -> copia a pasta html (ou o diretório da pasta que deseja copiar) para dentro da url do container
+se um dia for criada a variação da imagem criada, usa todos os layouts que ja tem como cache
+caso for chamar o arquivo principal do ngnix, irá vir o arquivo html que foi colocado no container ao chamar a imagem criada por você
+FROM nginx:latest
+
+WORKDIR /app
+
+RUN apt-get update && \
+    apt-get install -y vim
+
+COPY html/ /usr/share/nginx/html
+docker ps -> lista todos os containers ativos
+docker ps -a -> lista todos os containers ativos e não ativos
+docker ps -a -q -> lista todos os id dos containers ativos e não ativos
+docker rm $(docker ps -a -q) -f -> remove forçadamente todos os containers ativos e não ativos
+
+CMD [ "echo", "Hello, World!" ] -> comando que pode ser substituível
+docker run --rm jeansouza007/hello:latest -> Hello, World! 
+docker run --rm jeansouza007/hello echo oi -> oi
+
+ENTRYPOINT [ "echo", "Hello " ]
+
+CMD [ "World" ] (se é usado um comando bash para rodar uma imagem, o comando passa por cima do cmd)
+O Cmd (command) entra como parâmetro para o entrypoint, o cmd pode ser mutável, o entrypoint é fixo
+docker run --rm jeansouza007/hello -> Hello World
+docker run --rm jeansouza007/hello x -> Hello x
+todo arquivo exec $@ significa q aceitará todos os contúdo dps do entrypoint.sh
+
+docker login para logar no docker hub
+docker push nome da imagem, irá jogar o a imagem para o docker hub
+
+criar uma network sem informar, se cria uma bridge q faz um container se comunicar com o outro
+network host faz a minha máquina e o container compartilham a mesma rede condicionando a comunicação entre si
+network overlay para caso houver vários docker em vários computadores, o overlay faz a conexão com todos esses containers
+network none sem rede, container rodando de forma isolada
+
+docker network inspect bridge -> dentro da network
+
+docker attach ubuntu1-> entra direto no bash do container
+ip addr show -> vê o ip do container
+docker start -ai nome container starta e attach um container existente
+docker build -t jeansouza007/hello-express node/ -f node/Dockerfile.prod -> roda outro dockerfile, coloca o copy no prod
+
+consegue pingar outro container ao usar o network bridge
+
+docker network create --driver bridge minharede cria uma outra network
+docker network ls -> vê todas as networks existente na máquina
+
+docker run -d -it --name ubuntu2 --network minharede bash cria o container na rede
+se não der nome ao network, será chamada de bridge por padrão
+
+docker network connect minharede ubuntu3 -> conecta o container criado para a network a sua escolha
+docker run --rm -d --name nginx --network host nginx -> junta a rede do docker host com o container local
+
+curl http://host.docker.internal:8000 -> o container acessa a máquina onde o servidor roda
+
+docker build -t jeansouza007/laravel:latest . -> builda o dockerfile
+docker run --rm --name [nome container] -p 8000:8000 [nome imagem]
+
+ENTRYPOINT [ "php", "laravel/artisan", "serve" ] // entrada geral por padrão e não pode ser mudado
+CMD [ "--host=0.0.0.0" ] // entrada de comando, pode ser substituido
+docker run -d --rm --name laravel -p 8001:8001 jeansouza007/laravel [--host=0.0.0.0 --port=8001] -> altera o command
+docker logs -> Vê o que está acontecendo no container
+--rm (quando sair do container ele morre)
+docker run --rm -it -v ${pwd}/:/usr/src/app -p 3000:3000 node:15 bash -> pwd pega o diretório caso esteja no linux ou usando wsl2
+touch oi aparece o arquivo na minha máquina, pois tudo que aparecer no container deve aparecer na minha máquina e vice-versa
+
+COPY . . joga toda a pasta do build para o container
+
+EXPOSE 3000 outros containers pode ter acesso a esse container pela porta
+
+multistage build -> duas ou mais etapas
+
+FROM php:7.4-cli AS builder
+RUN rm -> remove o arquivo da imagem 
+COPY --from=builder /var/www/laravel . -> Do workdir do builder buscar a pasta laravel e mandar para o workdir de outra imagem (nesse caso a que está com o comando)
+RUN chown -R  www-data:www-data /var/www -> Deu permissão para o usuário www-data e para o grupo www-data
+docker build -t jeansouza007/laravel:prod laravel -f laravel/Dockerfile.prod
+docker images | grep laravel -> pesquisa o nome das imagens
+
+ location ~ \.php$ {
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+        fastcgi_pass laravel:9000;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;  
+    }
+para cada arquivo .php, irá pegar o nome do arquivo php e será executado no servidor da laravel:9000
+
+RUN mkdir /var/www/laravel/public -p && touch /var/www/laravel/public/index.php -> cria um diretório do public que será o mesmo caminho onde o laravel irá trabalhar
+o index.php deve ser criado pois o laravel trabalha com o index.php mesmo que esteja em branco
+docker network create laranet -> cria a network com default drive bridge
+fuser -k 9042/tcp -> libera a porta
+RUN ln -s public html -> cria um link simbolico do public chamada html, então ao acessar a pasta html estará acessando a public
+docker network create laranet
+docker run -d --network laranet --name laravel jeansouza007/laravel:prod
+docker run -d --network laranet --name nginx -p 8080:80 jeansouza007/nginx:prod
+
+docker-compose up -d --build toda vez q mudar uma imagem
+dockerize consegue verificar se o container especifico esteja pronto
+
+dockerize -wait tcp://db:3306 conecta a imagem db até ficar pronto, enquanto ele não conectar ele fica tentando por um tempo q é ajustado pelo -timeout
